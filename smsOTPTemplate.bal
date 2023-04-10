@@ -72,7 +72,7 @@ service on new http:Listener (9000){
         }
     }
 
-    resource function post users/[string email] (string password, @http:Header string passKey) returns string|InvalidEmailError|error{
+    resource function post users/[string email] (string password) returns string|InvalidEmailError|error{
         FullUser|error gotUser = getUser(email);
             if gotUser is FullUser {
                 error? userUpdation = updateUser(email, password);
