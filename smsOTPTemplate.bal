@@ -23,15 +23,9 @@ configurable string dbPortStr = io:readln("Input the port your Database :");
 int dbPort = check int:fromString(dbPortStr);
 string scope = "internal_user_mgt_create";
 
-// string orgname = "orgwso2";
-// string clientID = "Cl9KHMcgXRNkI6ww3ZMdjGfRiZ8a";
-// string clientSecret = "UCz6kyojkS3XQbYZg_2vN41JKVca";
-
 http:Client Register = check new ("https://api.asgardeo.io/t/orgwso2/scim2", httpVersion = http:HTTP_1_1);
 
 mysql:Client dbClient = check new (dbHost, dbUser, dbPassword, dbName, dbPort);
-
-// mysql:Client dbClient = check new ("mysql-119484-0.cloudclusters.net", "admin", "administrator", "Database1", 18110);
 
 service on new http:Listener (9000){
     
