@@ -21,9 +21,11 @@ configurable string dbPortStr = io:readln("Input the port your Database :");
 
 
 int dbPort = check int:fromString(dbPortStr);
-string scope = "internal_user_mgt_create";
 
-http:Client Register = check new ("https://api.asgardeo.io/t/orgwso2/scim2", httpVersion = http:HTTP_1_1);
+string createScope = "internal_user_mgt_create";
+string listScope = "internal_user_mgt_list";
+
+http:Client Register = check new ("https://api.asgardeo.io/t/"+orgname+"/scim2", httpVersion = http:HTTP_1_1);
 
 mysql:Client dbClient = check new (dbHost, dbUser, dbPassword, dbName, dbPort);
 
@@ -41,13 +43,27 @@ service on new http:Listener (9000){
             }; 
 
         }else {
-            string verificationCode = check codegen:genCode();
-            time:Utc verificationSentTime = time:utcNow();
-            error? data = createUser(userEntry.email, userEntry.name, userEntry.phoneNumber, verificationCode, "DEFAULT PASSWORD", verificationSentTime[0], 0);
-            error? sms = smsOTP:sendSMSOTP(toNumber,verificationCode);
-            // error? sms = vonage:vonageSMSOTP(toNumber.substring(1,12),verificationCode);
+            json token = check makeRequest(orgname, clientID, clientSecret, listScope);
+    
+            json Msg = formatData:checkDuplicate(userEntry.email);
+            json token_type_any = check token.token_type;
+            json access_token_any = check token.access_token;
+            string token_type = token_type_any.toString();  
+            string access_token = access_token_any.toString();
+            http:Response postData = check Register->post(path = "/Users/.search", message = Msg, headers = {"Authorization": token_type+" "+access_token, "Content-Type": "application/scim+json"});
+            json num = check postData.getJsonPayload();
+            int result = check num.totalResults;
+            if result == 0 {
+                string verificationCode = check codegen:genCode();
+                error? sms = smsOTP:sendSMSOTP(toNumber,verificationCode);
+                // error? sms = vonage:vonageSMSOTP(toNumber.substring(1,12),verificationCode);
+                time:Utc verificationSentTime = time:utcNow();
+                error? data = createUser(userEntry.email, userEntry.name, userEntry.phoneNumber, verificationCode, "DEFAULT PASSWORD", verificationSentTime[0], 0);
+                return "User has been added to the Temporary UserStore";
+            } else {
+                return "Already a user exists with the same email";
+            }
         }
-        return "User has been added to the Temporary UserStore";
     }
 
     resource function get users/[string email] () returns string|error {
@@ -72,7 +88,7 @@ service on new http:Listener (9000){
                 error? userUpdation = updateUser(email, password);
 
                 json Msg = formatData:formatdata(gotUser.name,gotUser.email,password);
-                json token = check makeRequest(orgname,clientID,clientSecret);
+                json token = check makeRequest(orgname,clientID,clientSecret,createScope);
                 json token_type_any = check token.token_type;
                 json access_token_any = check token.access_token;
                 string token_type = token_type_any.toString();  
@@ -80,6 +96,9 @@ service on new http:Listener (9000){
                 http:Response|http:ClientError postData = check Register->post(path = "/Users", message = Msg, headers = {"Authorization": token_type+" "+access_token, "Content-Type": "application/scim+json"});
                 if postData is http:Response {
                     int num = postData.statusCode;
+                    if num == 201 {
+                            error? userDeletion = deleteUser(email);
+                    }
                     return "The code is correct. The statusCode is "+num.toString();
                 } else {
                     return "The code is correct but error in creating the user";
@@ -203,7 +222,7 @@ function updateReceivedTime(string email, int receivedTime) returns error?{
     sql:ExecutionResult result = check dbClient->execute(query);
 }
 
-public function makeRequest(string orgName, string clientId, string clientSecret) returns json|error|error {
+public function makeRequest(string orgName, string clientId, string clientSecret, string scope) returns json|error|error {
     http:Client clientEP = check new ("https://api.asgardeo.io",
         auth = {
             username: clientId,

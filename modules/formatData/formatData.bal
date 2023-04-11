@@ -1,19 +1,11 @@
-public function formatdata (int|string|decimal name, int|string|decimal email, int|string|decimal password) returns json{
-    
-    string actualEmail;
-    if email is string {
-        actualEmail = email;
-    } else {
-        actualEmail = "DEFAULT";
-    }
-
+public function formatdata (string name, string email, string password) returns json{
     json data = {
                     "schemas": [],
                     "name": {
                         "givenName": name,
                         "familyName": ""
                     },
-                    "userName": "DEFAULT/"+actualEmail,
+                    "userName": "DEFAULT/"+email,
                     "password": password,
                     "Mobile": "0778935517",
                     "emails": [
@@ -32,6 +24,19 @@ public function formatdata (int|string|decimal name, int|string|decimal email, i
                     "urn:scim:wso2:schema": {
                         "askPassword": false
                     }
+                };
+    return data;
+}
+
+public function checkDuplicate (string email) returns json {
+    json data = {
+                    "schemas": [
+                        "urn:ietf:params:scim:api:messages:2.0:SearchRequest"
+                    ],
+                    "attributes": [
+                        "userName"
+                    ],
+                    "filter": "userName co "+email
                 };
     return data;
 }
