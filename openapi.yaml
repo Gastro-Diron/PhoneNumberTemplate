@@ -52,7 +52,7 @@ paths:
   /users/{email}:
     get:
       summary: Send new verification code
-      description: Send new verification code to the user's email
+      description: Send new verification code to the user's phoneNumber
       parameters:
         - name: email
           in: path
